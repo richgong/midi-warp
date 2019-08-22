@@ -9,14 +9,10 @@ int main() {
     int numpartials;
     cin >> numpartials;
 
-    float ampl[1024], frequ[1024];
+    float frequ[1024];
     for (int i = 1; i <= numpartials; ++i) {
         cout << i << ") Enter frequency: ";
         cin >> frequ[i];
-    }
-    for (int i = 1; i <= numpartials; ++i) {
-        cout << i << ") Enter amplitude: ";
-        cin >> ampl[i];
     }
 
     ofstream outfile("output.csv");
@@ -48,9 +44,7 @@ int main() {
                 const float A1 = -3.51; // theses values determine the rates at which the function rises and falls and
                 const float A2 = -5.75; // and are based on a gradient minimisation of the squared error between Plomp and Levelt's averaged data and the curve
                 const float C1 = 5, C2 = -5; // these parameters have values to fit the experimental data of Plomp and Levelt
-
-                // The lesser of amp(i) and amp(j) is used. The idea is to give larger dissonance for louder sounds and to smoothly go to zero as one of the partials disappears
-                float dnew = min(ampl[i], ampl[j]) * (C1 * exp(A1 * s * fdif) + C2 * exp(A2 * s * fdif));
+                float dnew = (C1 * exp(A1 * s * fdif) + C2 * exp(A2 * s * fdif));
                 d = d + dnew; // keep adding the dissonances of each loop, where d iterates the dissonance of 1 partial(frequ[i]) with
                               // each(all) of the timbre's other partials as they'd be at the current interval. This is done for
                               // for each partial(freq[i]) and every interval.
