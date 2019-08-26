@@ -42,4 +42,5 @@ with open_inst(1, is_out=False) as vi:
                               time=mi.time)
             vo.send(mo)
         else:
+            print(mi.type)
             vo.send(mi)

@@ -1,57 +1,71 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <vector>
 using namespace std;
 
+const int NUM_PARTIALS = 6;
+const double PARTIAL_DECAY = 0.88;
+const double SEMI_MULT = pow(2, 1./12); // semitone multiplier
+const double SEMI_MULT_STEP = pow(SEMI_MULT, 1/10.);
 
 int main() {
-    cout << "Enter the number of partials: ";
-    int numpartials;
-    cin >> numpartials;
+    vector<double> freq, partials, partials_ampl;
+    freq.push_back(440); // A
+    freq.push_back(440 * pow(SEMI_MULT, 4)); // 3rd
+    freq.push_back(440 * pow(SEMI_MULT, 7)); // 5th
 
-    float frequ[1024];
-    for (int i = 1; i <= numpartials; ++i) {
-        cout << i << ") Enter frequency: ";
-        cin >> frequ[i];
+    for (int i = 0; i < freq.size(); ++i) {
+        cout << "Frequency: " << freq[i] << endl;
+        for (int j = 0; j < NUM_PARTIALS; ++j) {
+            double f = freq[i] * (j + 1);
+            double a = pow(PARTIAL_DECAY, j);
+            partials.push_back(f);
+            partials_ampl.push_back(a);
+            cout << "  Partial: " << f << " @ " << a << endl;
+        }
     }
 
     ofstream outfile("output.csv");
-    for (float interval = 0.4; interval <= 2.3; interval += 0.01) {
-        
-        // fill allpartialsatinterval array with each element of freq array multiplied by interval.
-        float allpartialsatinterval[1024];
-        for (int k = 1; k <= numpartials; k++)
-            allpartialsatinterval[k] = interval * frequ[k];
-        
-        float d = 0;
-        // Calculate the dissonance between frequ[i] and interval*frequ[j]
-        for (int i = 1; i <= numpartials; i++) {
-            for (int j = 1; j <= numpartials; j++) {
-                // fmin takes on the lesser of freq*1.x and frequ
-                float fmin = min(frequ[i], allpartialsatinterval[j]); 
+    for (double interval = 0.5; interval < 2 + 1e-7; interval *= SEMI_MULT_STEP)
+    //for (double interval = 1.0; interval < 2 + 1e-7; interval *= SEMI_MULT_STEP)
+    {
+        double frequency = freq[0] * interval; // calculate dissonance for intervals from the root
 
-                const float S1 = 0.0207; // s1 and s2 are used to allow a single functional form to interpolate beween
-                const float S2 = 18.96;  // the various P&L curves of different frequencies by sliding, stretching/compressing
-                                         // the curve so that its max dissonance occurs at dstar. A least-square-fit was made
-                                         // to determine the values.
-                const float DSTAR = 0.24; // this is the point of maximum dissonance - the value is derived from a model of the Plomp-Levelt dissonance  curves for all frequencies.
-                float s = DSTAR / (S1 * fmin + S2); // define s with interpolating values s1 and s2.
+        double dissonance = 0;
+        double a_ampl = 1;
+        for (int i = 0; i < NUM_PARTIALS; ++i) {
+            double a_freq = frequency * (i + 1);
+            for (int j = 0; j < partials.size(); ++j) {
+                // calculate the dissonance between two partials
+                double b_freq = partials[j];
+                double b_ampl = partials_ampl[j];
+                // fmin=min(a_freq, b_freq) base frequency is the lesser of (frequency * interval) and frequency
+                // dstar=0.24 is interval of maximum dissonance, derived from a model of Plomp-Levelt dissonance curves for all frequencies
+                // s1=0.0207 and s2=18.96 are used to stretch the curve so that its max dissonance occurs at dstar
                 // If the point of maximum dissonance for a base frequency f occurs at dstar, then the dissonance between
-                // f1 with amp1 and f2 with amp2, is - amp1*amp2(e^-a1s[f2-f1] - e^-a2s[f2-f1]) where s = dstar/(s1f1+f2).....
+                // f1 and f2 = amp1*amp2(e^-a1s[f2-f1] - e^-a2s[f2-f1]) where s = dstar/(s1*f1+f2)
+                double s_dist = 0.24 * fabs(a_freq - b_freq) / (0.0207 * min(a_freq, b_freq) + 18.96); // the absolute diff between frequencies
+                // A1=-3.51 and A2=-5.75 are values that determine the rates at which the function rises and falls
+                // based on a gradient minimisation of the squared error between Plomp and Levelt's averaged data and the curve
+                // C1=5 and C2=-5 are parameters with values to fit the experimental data of Plomp and Levelt
 
-                // the absolute diff between frequencies
-                float fdif = fabs(allpartialsatinterval[j] - frequ[i]);
-                const float A1 = -3.51; // theses values determine the rates at which the function rises and falls and
-                const float A2 = -5.75; // and are based on a gradient minimisation of the squared error between Plomp and Levelt's averaged data and the curve
-                const float C1 = 5, C2 = -5; // these parameters have values to fit the experimental data of Plomp and Levelt
-                float dnew = (C1 * exp(A1 * s * fdif) + C2 * exp(A2 * s * fdif));
-                d = d + dnew; // keep adding the dissonances of each loop, where d iterates the dissonance of 1 partial(frequ[i]) with
-                              // each(all) of the timbre's other partials as they'd be at the current interval. This is done for
-                              // for each partial(freq[i]) and every interval.
+                double e = (exp(-3.51 * s_dist) - exp(-5.75 * s_dist));
+
+                if (true) {
+                    dissonance += min(a_ampl, b_ampl) * e;
+                } else {
+                    // http://www.acousticslab.org/learnmoresra/moremodel.html
+                    double amp_max = max(a_ampl, b_ampl);
+                    double amp_min = min(a_ampl, b_ampl);
+                    double y = pow(amp_min * amp_max, 0.1) * 0.5 * pow(2 * amp_min / (amp_min + amp_max), 3.11);
+                    dissonance += y * e;
+                }
             }
+            a_ampl *= PARTIAL_DECAY;
         }
-        cout << "interval=" << interval << " dissonance=" << d << endl;
-        outfile << interval << ',' << d << endl;
-    }
+        cout << "interval=" << interval << " frequency=" << frequency << " dissonance=" << dissonance << endl;
+        outfile << interval << ',' << frequency << ',' << dissonance << endl;
+    }//*/
     return 0;
 }
