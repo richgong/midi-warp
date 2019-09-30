@@ -21,7 +21,7 @@ class Inst:
             self.input = backend.open_input(self.name, callback=self.input_callback)
 
     def input_callback(self, note_in):
-        print('[input]', self, note_in)
+        print('[input]', self, note_in, f'/ ableton_channel={note_in.channel + 1}' if hasattr(note_in, 'channel') else '')
         if note_in.type in ['note_on', 'note_off']:
             octave = int(note_in.note / 12)
             key = note_in.note % 12
