@@ -1,3 +1,6 @@
+# https://github.com/patrickkidd/pyrtmidi
+
+
 #import gevent
 #from gevent import monkey
 #monkey.patch_all()
@@ -19,26 +22,17 @@ def print_message(midi, port):
             call_obs_api()
 
 
-class Collector(threading.Thread):
+class Collector:
     def __init__(self, device, port):
-        threading.Thread.__init__(self)
-        self.setDaemon(True)
         self.port = port
         self.portName = device.getPortName(port)
         self.device = device
-        self.quit = False
-
-    def run(self):
         self.device.openPort(self.port)
-        self.device.ignoreTypes(True, False, True)
-        while True:
-            if self.quit:
-                return
-            msg = self.device.getMessage()
-            if msg:
-                print_message(msg, self.portName)
+        self.device.ignoreTypes(True, False, True) # bool midiSysex=true, bool midiTime=true, bool midiSense=true
+        self.device.setCallback(self.onMessage)
 
-
+    def onMessage(self, msg):
+        print_message(msg, self.portName)
 
 
 def call_obs_api(command='pause-toggle'):
@@ -46,7 +40,9 @@ def call_obs_api(command='pause-toggle'):
     print("Calling:", url)
     response = requests.get(url).json()
     print("OBS RESPONSE:", response)
-    os.system(f"say '{response['msg']}'")
+    if response['msg']:
+        os.system(f"say '[[volm 0.10]] {response['msg']}'")
+
 
 dev = RtMidiIn()
 collectors = []
@@ -54,8 +50,6 @@ for i in range(dev.getPortCount()):
     device = RtMidiIn()
     print('OPENING',dev.getPortName(i))
     collector = Collector(device, i)
-    collector.start()
-    collectors.append(collector)
 
 
 

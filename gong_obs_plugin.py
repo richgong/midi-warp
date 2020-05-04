@@ -2,6 +2,7 @@ from pynput import keyboard
 import threading
 from flask import Flask, render_template, jsonify, request
 import requests
+import logging
 
 
 ### OBS hooks
@@ -15,7 +16,8 @@ def script_description():
 
 
 def script_update(settings):
-    print("GONG) Test input:", obs.obs_data_get_string(settings, "test_input"))
+    test_input = obs.obs_data_get_string(settings, 'test_input')
+    logging.info(f"GONG) Test input: {test_input}")
 
 
 def script_properties():
@@ -25,7 +27,7 @@ def script_properties():
 
 
 def script_load(settings):
-    print("GONG) loaded")
+    logging.info("GONG) loaded")
 
 
 def script_unload():
@@ -38,7 +40,16 @@ app = Flask(__name__)
 IS_DEV = __name__ == '__main__'
 PORT = 8080 if IS_DEV else 28000
 
-print(f"GONG) Hi. Running as {__name__}. IS_DEV={IS_DEV}")
+log_level = logging.DEBUG if IS_DEV else logging.WARNING
+logging.getLogger('werkzeug').setLevel(log_level)
+logger = logging.getLogger()
+logger.setLevel(log_level)
+log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(module)s:%(lineno)d %(message)s')
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(log_formatter)
+logger.addHandler(stream_handler)
+
+logging.info(f"GONG) Hi. Running as {__name__}. IS_DEV={IS_DEV}")
 
 
 @app.route("/")
@@ -65,14 +76,14 @@ def record_toggle_view():
         obs.obs_frontend_recording_start()
     else:
         obs.obs_frontend_recording_stop()
-    return jsonify(msg="Recording started" if recording else "Recording stopped", recording=recording)
+    return jsonify(msg="" if recording else "Recording stopped", recording=recording)
 
 
 @app.route("/pause-toggle")
 def pause_toggle_view():
     paused = not obs.obs_frontend_recording_paused()
     obs.obs_frontend_recording_pause(paused)
-    return jsonify(msg="Pausing" if paused else "Continuing", paused=paused)
+    return jsonify(msg="Pausing" if paused else "", paused=paused)
 
 
 @app.route("/kill")
@@ -85,7 +96,7 @@ def kill_view():
 
 
 def on_hotkey():
-    print("GONG) Hotkey detected")
+    logging.info("GONG) Hotkey detected")
     obs.obs_frontend_recording_start()
 
 
