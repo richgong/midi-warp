@@ -4,9 +4,9 @@
 </head>
 <body>
 <ul>
-    <li><a href="/record-start">Start record</a></li>
-    <li><a href="/record-stop">Stop record</a></li>
-    <li><a href="/kill">Kill server</a></li>
+    {% for command in ['pause-toggle', 'record-start', 'record-stop', 'record-toggle', 'kill'] %}
+    <li><a href="/{{ command }}">{{ command }}</a></li>
+    {% endfor %}
 </ul>
 {% block content %}{% endblock %}
 </body>

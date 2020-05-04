@@ -49,13 +49,30 @@ def home_view():
 @app.route("/record-start")
 def record_start_view():
     obs.obs_frontend_recording_start()
-    return render_template('record_start.html')
+    return render_template('msg.html', msg='Recording started.')
 
 
 @app.route("/record-stop")
 def record_stop_view():
     obs.obs_frontend_recording_stop()
-    return render_template('record_stop.html')
+    return render_template('msg.html', msg='Recording stopped.')
+
+
+@app.route("/record-toggle")
+def record_toggle_view():
+    recording = not obs.obs_frontend_recording_active()
+    if recording:
+        obs.obs_frontend_recording_start()
+    else:
+        obs.obs_frontend_recording_stop()
+    return jsonify(msg="Recording started" if recording else "Recording stopped", recording=recording)
+
+
+@app.route("/pause-toggle")
+def pause_toggle_view():
+    paused = not obs.obs_frontend_recording_paused()
+    obs.obs_frontend_recording_pause(paused)
+    return jsonify(msg="Pausing" if paused else "Continuing", paused=paused)
 
 
 @app.route("/kill")
@@ -64,7 +81,7 @@ def kill_view():
     if func is None:
         raise RuntimeError('Not running with the Werkzeug Server')
     func()
-    return render_template('kill.html')
+    return render_template('msg.html', msg='Server killed.')
 
 
 def on_hotkey():

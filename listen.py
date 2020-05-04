@@ -1,46 +1,50 @@
-from gevent import monkey
-monkey.patch_all()
+#import gevent
+#from gevent import monkey
+#monkey.patch_all()
 
 import time
 from mido.backends.backend import Backend
 from mido.messages.messages import Message
 from mido.backends.rtmidi import Input, Output
-import pyautogui
 from pynput import keyboard
+import requests
 import threading
 
 
+# SEND_KEYS = ['command', 'option', 'ctrl', '0']
+# SEND_KEYS2 = [keyboard.Key.cmd, keyboard.Key.alt, keyboard.Key.ctrl, '1']
+
 my_keyboard = keyboard.Controller()
-
-backend = Backend()
-
-SEND_KEYS = ['command', 'option', 'ctrl', '0']
-SEND_KEYS2 = [keyboard.Key.cmd, keyboard.Key.alt, keyboard.Key.ctrl, '1']
-# SEND_KEYS = ['command', 'shift', '9']
 
 
 def on_hotkey():
     print("LISTENER: HOT KEY DETECTED!")
 
 
-def run(block=False):
+def run_hotkey_listener(block=False):
     listener = keyboard.GlobalHotKeys({
         # for some reason, letter-based hot keys don't work, only number-based ones
         # can do multiple sets here...
         '<cmd>+<alt>+<ctrl>+1': on_hotkey,
     })
+    listener.start()
+    print("Hotkey listener started...")
     if block:
-        listener.start()
         listener.join()
-    else:
-        listener.start()
 
 
-def run_thread():
-    run(block=True)
+run_hotkey_listener()
+# threading.Thread(target=run_hotkey_listener, kwargs=dict(block=True)).start()
 
-thread = threading.Thread(target=run_thread, args=())
-thread.start()
+
+backend = Backend()
+
+
+def call_obs_api(command='pause-toggle'):
+    url = f'http://localhost:28000/{command}'
+    print("Calling:", url)
+    response = requests.get(url).json()
+    print("OBS RESPONSE:", response)
 
 
 class Inst:
@@ -63,6 +67,9 @@ class Inst:
                 # Add permissions for iTerm2: https://stackoverflow.com/questions/54973241/applescript-application-is-not-allowed-to-send-keystrokes
                 print("Special key pressed!")
 
+                threading.Thread(target=call_obs_api, kwargs=dict(command='pause-toggle'), daemon=True).start()
+                print("NEXT....")
+
                 """
                 pyautogui.hotkey(*SEND_KEYS, interval=0.1)
                 #"""
@@ -81,9 +88,11 @@ class Inst:
                     my_keyboard.release(key)
                 #"""
 
+        """
         if note_in.type in ['note_on', 'note_off']:
             octave = int(note_in.note / 12)
             key = note_in.note % 12
+        #"""
 
     def __repr__(self):
         return f'<Inst name={self.name}>'
@@ -102,4 +111,3 @@ print("All writable outputs:", output_names)
 
 while True:
     time.sleep(100)
-
