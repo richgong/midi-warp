@@ -2,9 +2,30 @@ import time
 from mido.backends.backend import Backend
 from mido.messages.messages import Message
 from mido.backends.rtmidi import Input, Output
+import pyautogui
+from pynput import keyboard
+import threading
 
+
+my_keyboard = keyboard.Controller()
 
 backend = Backend()
+
+SEND_KEYS = ['command', 'option', 'ctrl', '0']
+SEND_KEYS2 = [keyboard.Key.cmd, keyboard.Key.alt, keyboard.Key.ctrl, '1']
+# SEND_KEYS = ['command', 'shift', '9']
+
+
+def on_hotkey():
+    print("LISTENER: HOT KEY DETECTED!")
+
+
+keyboard.GlobalHotKeys({
+    # for some reason, letter-based hot keys don't work, only number-based ones
+    # can do multiple sets here...
+    '<cmd>+<alt>+<ctrl>+1': on_hotkey,
+}).start()
+
 
 
 class Inst:
@@ -22,7 +43,30 @@ class Inst:
 
     def input_callback(self, note_in):
         if note_in.type != 'clock':
-            print('[input]', self, note_in, f'/ real_channel={note_in.channel + 1}' if hasattr(note_in, 'channel') else '')
+            # print('[input]', self, note_in, f'/ real_channel={note_in.channel + 1}' if hasattr(note_in, 'channel') else '')
+            if note_in.type == 'control_change' and note_in.control == 65 and note_in.value == 0:
+                print('[input]', self, note_in, f'/ real_channel={note_in.channel + 1}' if hasattr(note_in, 'channel') else '')
+                # Add permissions for iTerm2: https://stackoverflow.com/questions/54973241/applescript-application-is-not-allowed-to-send-keystrokes
+                print("Special key pressed!")
+
+                """
+                pyautogui.hotkey(*SEND_KEYS, interval=0.1)
+                #"""
+
+                """
+                for key in SEND_KEYS:
+                    pyautogui.keyDown(key)
+                for key in reversed(SEND_KEYS):
+                    pyautogui.keyUp(key)
+                #"""
+
+                #"""
+                for key in SEND_KEYS2:
+                    my_keyboard.press(key)
+                for key in reversed(SEND_KEYS2):
+                    my_keyboard.release(key)
+                #"""
+
         if note_in.type in ['note_on', 'note_off']:
             octave = int(note_in.note / 12)
             key = note_in.note % 12

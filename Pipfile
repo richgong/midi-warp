@@ -8,6 +8,8 @@ verify_ssl = true
 [packages]
 mido = "==1.2.9"
 python-rtmidi = "*"
+pyautogui = "*"
+pynput = "*"
 
 [requires]
 python_version = "3.7"
