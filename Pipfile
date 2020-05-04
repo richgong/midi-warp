@@ -8,7 +8,6 @@ verify_ssl = true
 [packages]
 mido = "==1.2.9"
 python-rtmidi = "*"
-pyautogui = "*"
 pynput = "*"
 flask = "*"
 requests = "*"
