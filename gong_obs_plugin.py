@@ -1,5 +1,6 @@
 from pynput import keyboard
 import threading
+import os
 from flask import Flask, render_template, jsonify, request
 import requests
 import logging
@@ -52,6 +53,11 @@ logger.addHandler(stream_handler)
 logging.info(f"GONG) Hi. Running as {__name__}. IS_DEV={IS_DEV}")
 
 
+def say(s):
+    os.system(f"say '[[volm 0.10]] {s}'")
+    return s
+
+
 @app.route("/")
 def home_view():
     return render_template('home.html')
@@ -76,14 +82,25 @@ def record_toggle_view():
         obs.obs_frontend_recording_start()
     else:
         obs.obs_frontend_recording_stop()
-    return jsonify(msg="" if recording else "Recording stopped", recording=recording)
+    return jsonify(msg="Recoding started" if recording else "Recording stopped", recording=recording)
 
 
 @app.route("/pause-toggle")
 def pause_toggle_view():
-    paused = not obs.obs_frontend_recording_paused()
-    obs.obs_frontend_recording_pause(paused)
-    return jsonify(msg="Pausing" if paused else "", paused=paused)
+    recording = obs.obs_frontend_recording_active()
+    msg = None
+    if not recording:
+        msg = say('Starting')
+        obs.obs_frontend_recording_start()
+        paused = False
+    else:
+        paused = not obs.obs_frontend_recording_paused()
+        if not paused:
+            msg = say('Continuing')
+        obs.obs_frontend_recording_pause(paused)
+        if paused:
+            msg = say('Pausing')
+    return jsonify(msg=msg, paused=paused)
 
 
 @app.route("/kill")

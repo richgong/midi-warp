@@ -8,7 +8,6 @@ import os
 import time
 from rtmidi import RtMidiIn
 import requests
-import threading
 
 
 def print_message(midi, port):
@@ -37,25 +36,24 @@ class Collector:
 
 def call_obs_api(command='pause-toggle'):
     url = f'http://localhost:28000/{command}'
-    print("Calling:", url)
+    # print("Calling:", url)
     response = requests.get(url).json()
     print("OBS RESPONSE:", response)
-    if response['msg']:
-        os.system(f"say '[[volm 0.10]] {response['msg']}'")
+    #if response['msg']: os.system(f"say '[[volm 0.10]] {response['msg']}'")
 
 
-dev = RtMidiIn()
-collectors = []
-for i in range(dev.getPortCount()):
-    device = RtMidiIn()
-    print('OPENING',dev.getPortName(i))
-    collector = Collector(device, i)
+if __name__ == '__main__':
+    dev = RtMidiIn()
+    collectors = []
+    for i in range(dev.getPortCount()):
+        device = RtMidiIn()
+        print('OPENING',dev.getPortName(i))
+        collector = Collector(device, i)
 
 
 
-while True:
-    # print("HI")
-    time.sleep(100)
-    #gevent.sleep(1.0)
-    #gevent.spawn_later(0.1, call_obs_api)
-
+    while True:
+        # print("HI")
+        time.sleep(100)
+        #gevent.sleep(1.0)
+        #gevent.spawn_later(0.1, call_obs_api)
