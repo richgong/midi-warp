@@ -10,6 +10,9 @@ mido = "==1.2.9"
 python-rtmidi = "*"
 pyautogui = "*"
 pynput = "*"
+flask = "*"
+requests = "*"
+gevent = "*"
 
 [requires]
 python_version = "3.7"

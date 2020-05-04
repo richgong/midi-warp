@@ -1,3 +1,6 @@
+from gevent import monkey
+monkey.patch_all()
+
 import time
 from mido.backends.backend import Backend
 from mido.messages.messages import Message
@@ -20,12 +23,24 @@ def on_hotkey():
     print("LISTENER: HOT KEY DETECTED!")
 
 
-keyboard.GlobalHotKeys({
-    # for some reason, letter-based hot keys don't work, only number-based ones
-    # can do multiple sets here...
-    '<cmd>+<alt>+<ctrl>+1': on_hotkey,
-}).start()
+def run(block=False):
+    listener = keyboard.GlobalHotKeys({
+        # for some reason, letter-based hot keys don't work, only number-based ones
+        # can do multiple sets here...
+        '<cmd>+<alt>+<ctrl>+1': on_hotkey,
+    })
+    if block:
+        listener.start()
+        listener.join()
+    else:
+        listener.start()
 
+
+def run_thread():
+    run(block=True)
+
+thread = threading.Thread(target=run_thread, args=())
+thread.start()
 
 
 class Inst:
@@ -43,9 +58,8 @@ class Inst:
 
     def input_callback(self, note_in):
         if note_in.type != 'clock':
-            # print('[input]', self, note_in, f'/ real_channel={note_in.channel + 1}' if hasattr(note_in, 'channel') else '')
+            print('[input]', self, note_in, f'/ real_channel={note_in.channel + 1}' if hasattr(note_in, 'channel') else '')
             if note_in.type == 'control_change' and note_in.control == 65 and note_in.value == 0:
-                print('[input]', self, note_in, f'/ real_channel={note_in.channel + 1}' if hasattr(note_in, 'channel') else '')
                 # Add permissions for iTerm2: https://stackoverflow.com/questions/54973241/applescript-application-is-not-allowed-to-send-keystrokes
                 print("Special key pressed!")
 
@@ -60,7 +74,7 @@ class Inst:
                     pyautogui.keyUp(key)
                 #"""
 
-                #"""
+                """
                 for key in SEND_KEYS2:
                     my_keyboard.press(key)
                 for key in reversed(SEND_KEYS2):

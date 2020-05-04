@@ -1,3 +1,4 @@
 venv/
 Release/
 output.csv
+__pycache__
