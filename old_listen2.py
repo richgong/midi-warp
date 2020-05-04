@@ -1,6 +1,13 @@
+import gevent
+from gevent import monkey
+monkey.patch_all()
+
 import time
 from rtmidi import MidiIn, MidiOut
 from mido.messages.messages import *
+import requests
+import threading
+
 
 
 class Message(BaseMessage):
@@ -118,13 +125,31 @@ out_ports = midi_out.get_ports()
 print("IN ports:", in_ports)
 print("OUT ports:", out_ports)
 
-def callback(msg_data, data):
-    print(msg_data, data, Message.from_bytes(msg_data[0]))
+def call_obs_api(command='pause-toggle'):
+    url = f'http://localhost:28000/{command}'
+    print("Calling:", url)
+    response = requests.get(url).json()
+    print("OBS RESPONSE:", response)
 
-midi_in.open_port(1)
-midi_in.set_callback(callback)
 
-print("Press any midi key...")
+def __callback(msg_data, data):
+    print("GOT DATA")
+    note_in = Message.from_bytes(msg_data[0])
+    # print(msg_data, data, Message.from_bytes(msg_data[0]))
+    real_channel = note_in.channel + 1 if hasattr(note_in, 'channel') else 'null'
+    print(f'{note_in} / real_channel={real_channel}')
+    if note_in.type == 'control_change' and note_in.control == 65 and note_in.value == 0:
+        print("Special key pressed!")
+        # threading.Thread(target=call_obs_api, kwargs=dict(command='pause-toggle'), daemon=True).start()
+        gevent.spawn_later(0.1, call_obs_api)
+
+
+for index in range(len(in_ports)):
+    my_in = MidiIn().open_port(index)
+    my_in.set_callback(__callback)
+
 while True:
-    time.sleep(100)
+    print("HI")
+    gevent.sleep(1.0)
+    gevent.spawn_later(0.1, call_obs_api)
 

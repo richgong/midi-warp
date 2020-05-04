@@ -1,43 +1,44 @@
 #import gevent
 #from gevent import monkey
 #monkey.patch_all()
-
+import os
 import time
-from mido.backends.backend import Backend
-from mido.messages.messages import Message
-from mido.backends.rtmidi import Input, Output
-from pynput import keyboard
+from rtmidi import RtMidiIn
 import requests
 import threading
 
 
-# SEND_KEYS = ['command', 'option', 'ctrl', '0']
-# SEND_KEYS2 = [keyboard.Key.cmd, keyboard.Key.alt, keyboard.Key.ctrl, '1']
-
-my_keyboard = keyboard.Controller()
-
-
-def on_hotkey():
-    print("LISTENER: HOT KEY DETECTED!")
-
-
-def run_hotkey_listener(block=False):
-    listener = keyboard.GlobalHotKeys({
-        # for some reason, letter-based hot keys don't work, only number-based ones
-        # can do multiple sets here...
-        '<cmd>+<alt>+<ctrl>+1': on_hotkey,
-    })
-    listener.start()
-    print("Hotkey listener started...")
-    if block:
-        listener.join()
+def print_message(midi, port):
+    if midi.isNoteOn():
+        print('%s: ON: ' % port, midi.getMidiNoteName(midi.getNoteNumber()), midi.getVelocity())
+    elif midi.isNoteOff():
+        print('%s: OFF:' % port, midi.getMidiNoteName(midi.getNoteNumber()))
+    elif midi.isController():
+        print('%s: CONTROLLER' % port, midi.getControllerNumber(), midi.getControllerValue())
+        if midi.getControllerNumber() == 65 and midi.getControllerValue() == 0:
+            call_obs_api()
 
 
-run_hotkey_listener()
-# threading.Thread(target=run_hotkey_listener, kwargs=dict(block=True)).start()
+class Collector(threading.Thread):
+    def __init__(self, device, port):
+        threading.Thread.__init__(self)
+        self.setDaemon(True)
+        self.port = port
+        self.portName = device.getPortName(port)
+        self.device = device
+        self.quit = False
+
+    def run(self):
+        self.device.openPort(self.port)
+        self.device.ignoreTypes(True, False, True)
+        while True:
+            if self.quit:
+                return
+            msg = self.device.getMessage()
+            if msg:
+                print_message(msg, self.portName)
 
 
-backend = Backend()
 
 
 def call_obs_api(command='pause-toggle'):
@@ -45,69 +46,22 @@ def call_obs_api(command='pause-toggle'):
     print("Calling:", url)
     response = requests.get(url).json()
     print("OBS RESPONSE:", response)
+    os.system(f"say '{response['msg']}'")
+
+dev = RtMidiIn()
+collectors = []
+for i in range(dev.getPortCount()):
+    device = RtMidiIn()
+    print('OPENING',dev.getPortName(i))
+    collector = Collector(device, i)
+    collector.start()
+    collectors.append(collector)
 
 
-class Inst:
-    def __init__(self, index, is_out):
-        self.is_out = is_out
-        self.index = index
-
-        names = backend.get_output_names() if self.is_out else backend.get_input_names()
-        self.name = names[self.index]
-        print(f"opening index={index}", '[out]' if self.is_out else ' [in]', self.name)
-        if self.is_out:
-            self.output = backend.open_output(self.name)
-        else:
-            self.input = backend.open_input(self.name, callback=self.input_callback)
-
-    def input_callback(self, note_in):
-        if note_in.type != 'clock':
-            print('[input]', self, note_in, f'/ real_channel={note_in.channel + 1}' if hasattr(note_in, 'channel') else '')
-            if note_in.type == 'control_change' and note_in.control == 65 and note_in.value == 0:
-                # Add permissions for iTerm2: https://stackoverflow.com/questions/54973241/applescript-application-is-not-allowed-to-send-keystrokes
-                print("Special key pressed!")
-
-                threading.Thread(target=call_obs_api, kwargs=dict(command='pause-toggle'), daemon=True).start()
-                print("NEXT....")
-
-                """
-                pyautogui.hotkey(*SEND_KEYS, interval=0.1)
-                #"""
-
-                """
-                for key in SEND_KEYS:
-                    pyautogui.keyDown(key)
-                for key in reversed(SEND_KEYS):
-                    pyautogui.keyUp(key)
-                #"""
-
-                """
-                for key in SEND_KEYS2:
-                    my_keyboard.press(key)
-                for key in reversed(SEND_KEYS2):
-                    my_keyboard.release(key)
-                #"""
-
-        """
-        if note_in.type in ['note_on', 'note_off']:
-            octave = int(note_in.note / 12)
-            key = note_in.note % 12
-        #"""
-
-    def __repr__(self):
-        return f'<Inst name={self.name}>'
-
-
-input_names = backend.get_input_names()
-output_names = backend.get_output_names()
-
-print("All readable inputs:", input_names)
-for i in range(len(input_names)):
-    Inst(index=i, is_out=False)
-
-print("All writable outputs:", output_names)
-#for i in range(len(output_names)):
-#    Inst(index=i, is_out=True)
 
 while True:
+    # print("HI")
     time.sleep(100)
+    #gevent.sleep(1.0)
+    #gevent.spawn_later(0.1, call_obs_api)
+

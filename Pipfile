@@ -6,12 +6,12 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-mido = "==1.2.9"
 python-rtmidi = "*"
 pynput = "*"
 flask = "*"
 requests = "*"
 gevent = "*"
+rtmidi = "*"
 
 [requires]
 python_version = "3.7"
