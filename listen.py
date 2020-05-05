@@ -32,7 +32,7 @@ class Listener:
                 print(f'[{self.device_name}] ch={channel} cc={msg.getControllerNumber()} v={msg.getControllerValue()}')
             else:
                 print("Unknown message:", msg)
-            if msg.getControllerNumber() == 65 and msg.getControllerValue() == 0:
+            if msg.isController() and msg.getControllerNumber() == 65 and msg.getControllerValue() == 0:
                 call_obs_api()
         except Exception as e:
             logging.exception(e)
