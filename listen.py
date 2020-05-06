@@ -64,13 +64,13 @@ def on_hotkey():
 def run_hotkey_listener(block=False):
     # volume_key = [keyboard.Key.media_volume_up]
     key_map = {
-        '<cmd>+<alt>+<ctrl>+1': on_hotkey,
+        '<cmd>+<alt>+<ctrl>+8': on_hotkey,
     }
     if len(sys.argv) >= 2 and sys.argv[1] == 'v':
         key_map['<media_volume_up>'] = on_volume_up
     listener = keyboard.GlobalHotKeys(key_map)
     listener.start()
-    print("[Hotkey] Listener started on:", ', '.join(key_map.keys()))
+    print("[Hotkey] Waiting for:", ', '.join(key_map.keys()))
     if block:
         listener.join()
 
