@@ -47,27 +47,27 @@ def call_obs_api(command='pause-toggle'):
             print("OBS RESPONSE:", response)
             #if response['msg']: os.system(f"say '[[volm 0.10]] {response['msg']}'")
         except Exception as e:
-            logging.exception(e)
+            print(f"[ERROR] {e}")
     threading.Thread(target=__thread, kwargs={}, daemon=True).start()
 
 
-def on_volume_up():
-    print("[Hotkey] Volume up")
-    call_obs_api()
-
-
-def on_hotkey():
-    print("[Hotkey] Hot key detected")
-    call_obs_api()
+def hotkey_listener(key):
+    def __listener():
+        print(f"[Hotkey] Detected: {key}")
+        call_obs_api()
+    return __listener
 
 
 def run_hotkey_listener(block=False):
     # volume_key = [keyboard.Key.media_volume_up]
     key_map = {
-        '<cmd>+<alt>+<ctrl>+8': on_hotkey,
+        '<cmd>+<alt>+<ctrl>+8': hotkey_listener('<8>'),
     }
-    if len(sys.argv) >= 2 and sys.argv[1] == 'v':
-        key_map['<media_volume_up>'] = on_volume_up
+    if len(sys.argv) >= 2:
+        if sys.argv[1] == 'v':
+            key_map['<media_volume_up>'] = hotkey_listener('<volume>')
+        if sys.argv[1] == 'a':
+            key_map['`'] = hotkey_listener('<accent>')
     listener = keyboard.GlobalHotKeys(key_map)
     listener.start()
     print("[Hotkey] Waiting for:", ', '.join(key_map.keys()))
