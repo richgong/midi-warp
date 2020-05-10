@@ -4,7 +4,7 @@
 </head>
 <body>
 <ul>
-    {% for command in ['pause-toggle', 'record-start', 'record-stop', 'record-toggle', 'kill'] %}
+    {% for command in ['pause-toggle', 'record-toggle', 'kill'] %}
     <li><a href="/{{ command }}">{{ command }}</a></li>
     {% endfor %}
 </ul>

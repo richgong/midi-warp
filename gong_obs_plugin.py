@@ -54,25 +54,13 @@ logging.info(f"GONG) Hi. Running as {__name__}. IS_DEV={IS_DEV}")
 
 
 def say(s):
-    os.system(f"say '[[volm 0.10]] {s}'")
+    os.system(f"say '[[volm 0.50]] {s}'")
     return s
 
 
 @app.route("/")
 def home_view():
     return render_template('home.html')
-
-
-@app.route("/record-start")
-def record_start_view():
-    obs.obs_frontend_recording_start()
-    return render_template('msg.html', msg='Recording started.')
-
-
-@app.route("/record-stop")
-def record_stop_view():
-    obs.obs_frontend_recording_stop()
-    return render_template('msg.html', msg='Recording stopped.')
 
 
 @app.route("/record-toggle")
@@ -82,7 +70,7 @@ def record_toggle_view():
         obs.obs_frontend_recording_start()
     else:
         obs.obs_frontend_recording_stop()
-    return jsonify(msg="Recoding started" if recording else "Recording stopped", recording=recording)
+    return jsonify(msg="Recoding started" if recording else "Recording stopped", on=recording)
 
 
 @app.route("/pause-toggle")
@@ -90,17 +78,42 @@ def pause_toggle_view():
     recording = obs.obs_frontend_recording_active()
     msg = None
     if not recording:
-        msg = say('Starting')
+        msg = say('Go')
         obs.obs_frontend_recording_start()
         paused = False
     else:
         paused = not obs.obs_frontend_recording_paused()
         if not paused:
-            msg = say('Continuing')
+            msg = say('Going')
         obs.obs_frontend_recording_pause(paused)
         if paused:
-            msg = say('Pausing')
-    return jsonify(msg=msg, paused=paused)
+            msg = say('Stop')
+    return jsonify(msg=msg, on=not paused)
+
+
+@app.route("/pause")
+def pause_view():
+    recording = obs.obs_frontend_recording_active()
+    if not recording:
+        return jsonify(msg="Already not recording.", on=False)
+    if obs.obs_frontend_recording_paused():
+        return jsonify(msg="Already paused.", on=False)
+    obs.obs_frontend_recording_pause(True)
+    return jsonify(msg=say("Stop"), on=False)
+
+
+@app.route("/continue")
+def continue_view():
+    recording = obs.obs_frontend_recording_active()
+    if not recording:
+        msg = say('Start')
+        obs.obs_frontend_recording_start()
+        return jsonify(msg=msg, on=True)
+    if obs.obs_frontend_recording_paused():
+        msg = say('Go')
+        obs.obs_frontend_recording_pause(False)
+        return jsonify(msg=msg, on=True)
+    return jsonify(msg="Already recording", on=True)
 
 
 @app.route("/kill")
