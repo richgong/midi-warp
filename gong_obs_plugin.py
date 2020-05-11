@@ -91,8 +91,8 @@ def pause_toggle_view():
     return jsonify(msg=msg, on=not paused)
 
 
-@app.route("/pause")
-def pause_view():
+@app.route("/stop")
+def stop_view():
     recording = obs.obs_frontend_recording_active()
     if not recording:
         return jsonify(msg="Already not recording.", on=False)
@@ -102,8 +102,8 @@ def pause_view():
     return jsonify(msg=say("Stop"), on=False)
 
 
-@app.route("/continue")
-def continue_view():
+@app.route("/start")
+def start_view():
     recording = obs.obs_frontend_recording_active()
     if not recording:
         msg = say('Start')

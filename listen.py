@@ -12,7 +12,7 @@ import threading
 import time
 
 
-PAUSE_TIMER = None
+STOP_TIMER = None
 RECORDING_STATE = 0
 HOTKEY_LAST_TIME = 0
 VIRTUAL_OUTPUT_NAME = 'IAC Driver Gong TheGongPort'
@@ -27,32 +27,32 @@ def throttle():
     return delta < 1
 
 
-def smart_continue(send_midi=False):
+def smart_start(send_midi=False):
     global RECORDING_STATE, VIRTUAL_OUTPUT
-    # no need to wait, unlike pause
+    # no need to wait, unlike for stop
     if send_midi and VIRTUAL_OUTPUT:
-        VIRTUAL_OUTPUT.send_cc_momentary(8, 68) # record new
-        VIRTUAL_OUTPUT.send_cc(8, 64, 127) # start recording
+        VIRTUAL_OUTPUT.send_cc_momentary(8, 68, 'RECORD NEW') # record new
+        VIRTUAL_OUTPUT.send_cc_raw(8, 64, 127, 'RECORD START') # start recording
         RECORDING_STATE = 2
     if throttle():
         return
-    call_obs_api('continue')
+    call_obs_api('start')
 
 
-def smart_pause(send_midi=False):
-    global RECORDING_STATE, VIRTUAL_OUTPUT, PAUSE_TIMER
+def smart_stop(send_midi=False):
+    global RECORDING_STATE, VIRTUAL_OUTPUT, STOP_TIMER
     if send_midi and VIRTUAL_OUTPUT and RECORDING_STATE > 0:
         if RECORDING_STATE == 2:
-            VIRTUAL_OUTPUT.send_cc(8, 64, 0) # stop recording, but hear playback
+            VIRTUAL_OUTPUT.send_cc_raw(8, 64, 0, 'RECORD STOP') # stop recording, but hear playback
         elif RECORDING_STATE == 1:
-            VIRTUAL_OUTPUT.send_cc_momentary(8, 67) # stop playing
+            VIRTUAL_OUTPUT.send_cc_momentary(8, 67, 'STOP') # stop playing
         RECORDING_STATE -= 1
     if throttle():
         return
-    if PAUSE_TIMER:
+    if STOP_TIMER:
         return
-    PAUSE_TIMER = threading.Timer(4.0, call_obs_api, ('pause',))
-    PAUSE_TIMER.start()
+    STOP_TIMER = threading.Timer(4.0, call_obs_api, ('stop',))
+    STOP_TIMER.start()
 
 
 class Writer:
@@ -62,11 +62,15 @@ class Writer:
         print("[Device] Output:", self.device_name)
         self.device.openPort(port_index)
 
-    def send_cc_momentary(self, channel, cc):
-        self.send_cc(channel, cc, 127)
-        self.send_cc(channel, cc, 0)
+    def send_cc_momentary(self, channel, cc, label=None):
+        if label:
+            print('[Virtual] send_cc_momentary:', label)
+        self.send_cc_raw(channel, cc, 127)
+        self.send_cc_raw(channel, cc, 0)
 
-    def send_cc(self, channel, cc, v):
+    def send_cc_raw(self, channel, cc, v, label=None):
+        if label:
+            print('[Virtual] send_cc_raw:', label)
         # see: https://github.com/patrickkidd/pyrtmidi/blob/master/rtmidi/randomout.py
         msg = MidiMessage.controllerEvent(channel, cc, v)
         self.device.sendMessage(msg)
@@ -78,7 +82,7 @@ class Reader:
         self.device_name = self.device.getPortName(port_index)
         print("[Device] Input:", self.device_name)
         self.device.openPort(port_index)
-        self.device.ignoreTypes(False, False, False) # midiSysex, midiTime, midiSense
+        self.device.ignoreTypes(False, True, False) # midiSysex, midiTime, midiSense
         self.device.setCallback(self.on_message)
 
     def on_message(self, msg):
@@ -99,24 +103,24 @@ class Reader:
                 v = msg.getControllerValue()
                 if cc == 64 and self.device_name != VIRTUAL_OUTPUT_NAME:
                     if v > 0:
-                        smart_continue(send_midi=False)
+                        smart_start(send_midi=False)
                     else:
-                        smart_pause(send_midi=False)
+                        smart_stop(send_midi=False)
 
         except Exception as e:
             logging.exception(e)
 
 
 def call_obs_api(command='pause-toggle'):
-    global PAUSE_TIMER
-    if PAUSE_TIMER:
-        PAUSE_TIMER.cancel()
-        PAUSE_TIMER = None
+    global STOP_TIMER
+    if STOP_TIMER:
+        STOP_TIMER.cancel()
+        STOP_TIMER = None
 
     def __thread():
         try:
             url = f'http://localhost:28000/{command}'
-            print("[OBS] Send:", command)
+            print("[OBS]", command)
             response = requests.get(url).json()
             print("[OBS] Reponse:", response)
             global RECORDING_STATE
@@ -130,9 +134,9 @@ def hotkey_listener(key):
         print(f"[Hotkey] Detected: {key}")
         global RECORDING_STATE
         if RECORDING_STATE:
-            smart_pause(send_midi=ARGS.send_midi)
+            smart_stop(send_midi=ARGS.send_midi)
         else:
-            smart_continue(send_midi=ARGS.send_midi)
+            smart_start(send_midi=ARGS.send_midi)
     return __listener
 
 
