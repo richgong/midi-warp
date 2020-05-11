@@ -55,6 +55,12 @@ def smart_stop(send_midi=False):
     STOP_TIMER.start()
 
 
+def smart_toggle():
+    if throttle():
+        return
+    call_obs_api()
+
+
 class Writer:
     def __init__(self, port_index):
         self.device = RtMidiOut()
@@ -132,11 +138,14 @@ def call_obs_api(command='pause-toggle'):
 def hotkey_listener(key):
     def __listener():
         print(f"[Hotkey] Detected: {key}")
-        global RECORDING_STATE
-        if RECORDING_STATE:
-            smart_stop(send_midi=ARGS.send_midi)
+        if ARGS.send_midi:
+            global RECORDING_STATE
+            if RECORDING_STATE:
+                smart_stop(send_midi=True)
+            else:
+                smart_start(send_midi=True)
         else:
-            smart_start(send_midi=ARGS.send_midi)
+            smart_toggle()
     return __listener
 
 
