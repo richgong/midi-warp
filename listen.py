@@ -136,7 +136,7 @@ def hotkey_listener(key):
     return __listener
 
 
-def run_hotkey_listener(block=False):
+def listen_to_hot_keys(block=False):
     # volume_key = [keyboard.Key.media_volume_up]
     key_map = {
         '<cmd>+<alt>+<ctrl>+8': hotkey_listener('<8>'),
@@ -152,6 +152,18 @@ def run_hotkey_listener(block=False):
         listener.join()
 
 
+def listen_to_all_keys():
+    def __on_press(key):
+        print(f'{key} pressed')
+
+    def __on_release(key):
+        print(f'{key} released')
+
+    listener = keyboard.Listener(on_press=__on_press, on_release=__on_release)
+    listener.start()
+    listener.join()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="A MIDI/Keyboard signal router.")
     parser.add_argument('-v', '--volume', dest="volume",
@@ -162,7 +174,8 @@ if __name__ == '__main__':
                         help='Send synthetic MIDI sustain', action='store_true', required=False)
     ARGS = parser.parse_args()
 
-    run_hotkey_listener()
+    #listen_to_all_keys()
+    listen_to_hot_keys()
 
     for i in range(RtMidiIn().getPortCount()):
         Reader(i)
