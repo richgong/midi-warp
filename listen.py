@@ -12,11 +12,18 @@ import threading
 import time
 
 
+my_keyboard = keyboard.Controller()
 STOP_TIMER = None
 RECORDING_STATE = 0
+PLAYING_STATE = False
 HOTKEY_LAST_TIME = 0
 VIRTUAL_OUTPUT_NAME = 'IAC Driver Gong TheGongPort'
 VIRTUAL_OUTPUT = None
+
+
+def type_key(key):
+    my_keyboard.press(key)
+    my_keyboard.release(key)
 
 
 def throttle():
@@ -27,26 +34,35 @@ def throttle():
     return delta < 1
 
 
-def smart_start(send_midi=False):
-    global RECORDING_STATE, VIRTUAL_OUTPUT
+def smart_start(send_midi=None):
+    global RECORDING_STATE, PLAYING_STATE, VIRTUAL_OUTPUT
     # no need to wait, unlike for stop
-    if send_midi and VIRTUAL_OUTPUT:
-        VIRTUAL_OUTPUT.send_cc_momentary(8, 68, 'RECORD NEW') # record new
-        VIRTUAL_OUTPUT.send_cc_raw(8, 64, 127, 'RECORD START') # start recording
-        RECORDING_STATE = 2
+    if VIRTUAL_OUTPUT:
+        if send_midi == 'record':
+            RECORDING_STATE = 2
+            VIRTUAL_OUTPUT.send_cc_momentary(8, 68, 'RECORD NEW')
+            VIRTUAL_OUTPUT.send_cc_raw(8, 64, 127, 'RECORD START')
+        elif send_midi == 'play':
+            PLAYING_STATE = 1
+            VIRTUAL_OUTPUT.send_cc_momentary(8, 66, 'PLAY')
+
     if throttle():
         return
     call_obs_api('start')
 
 
 def smart_stop(send_midi=False):
-    global RECORDING_STATE, VIRTUAL_OUTPUT, STOP_TIMER
-    if send_midi and VIRTUAL_OUTPUT and RECORDING_STATE > 0:
-        if RECORDING_STATE == 2:
-            VIRTUAL_OUTPUT.send_cc_raw(8, 64, 0, 'RECORD STOP') # stop recording, but hear playback
-        elif RECORDING_STATE == 1:
-            VIRTUAL_OUTPUT.send_cc_momentary(8, 67, 'STOP') # stop playing
-        RECORDING_STATE -= 1
+    global RECORDING_STATE, PLAYING_STATE, VIRTUAL_OUTPUT, STOP_TIMER
+    if VIRTUAL_OUTPUT:
+        if send_midi == 'record':
+            if RECORDING_STATE == 2:
+                VIRTUAL_OUTPUT.send_cc_raw(8, 64, 0, 'RECORD STOP')
+            elif RECORDING_STATE == 1:
+                VIRTUAL_OUTPUT.send_cc_momentary(8, 67, 'PLAY STOP')
+            RECORDING_STATE -= 1
+        elif send_midi == 'play':
+            PLAYING_STATE = 0
+            VIRTUAL_OUTPUT.send_cc_momentary(8, 67, 'PLAY STOP')
     if throttle():
         return
     if STOP_TIMER:
@@ -109,9 +125,9 @@ class Reader:
                 v = msg.getControllerValue()
                 if cc == 64 and self.device_name != VIRTUAL_OUTPUT_NAME:
                     if v > 0:
-                        smart_start(send_midi=False)
+                        smart_start(send_midi=None)
                     else:
-                        smart_stop(send_midi=False)
+                        smart_stop(send_midi=None)
 
         except Exception as e:
             logging.exception(e)
@@ -135,29 +151,36 @@ def call_obs_api(command='pause-toggle'):
     threading.Thread(target=__thread, kwargs={}, daemon=True).start()
 
 
-def hotkey_listener(key):
+def hotkey_listener(key_name):
     def __listener():
-        print(f"[Hotkey] Detected: {key}")
-        if ARGS.send_midi:
+        print(f"[Hotkey] Detected: <{key_name}>")
+        if key_name == 'volume':
+            type_key(keyboard.Key.media_volume_down)
+        if ARGS.send_midi_record:
             global RECORDING_STATE
             if RECORDING_STATE:
-                smart_stop(send_midi=True)
+                smart_stop(send_midi='record')
             else:
-                smart_start(send_midi=True)
+                smart_start(send_midi='record')
+        elif ARGS.send_midi_play:
+            global PLAYING_STATE
+            if PLAYING_STATE:
+                smart_stop(send_midi='play')
+            else:
+                smart_start(send_midi='play')
         else:
             smart_toggle()
     return __listener
 
 
 def listen_to_hot_keys(block=False):
-    # volume_key = [keyboard.Key.media_volume_up]
     key_map = {
-        '<cmd>+<alt>+<ctrl>+8': hotkey_listener('<8>'),
+        '<cmd>+<alt>+<ctrl>+8': hotkey_listener('8'),
     }
     if ARGS.volume:
-        key_map['<media_volume_up>'] = hotkey_listener('<volume>')
-    if ARGS.accent or ARGS.send_midi:
-        key_map['`'] = hotkey_listener('<accent>')
+        key_map['<media_volume_up>'] = hotkey_listener('volume')
+    if ARGS.accent or ARGS.send_midi_record or ARGS.send_midi_play:
+        key_map['`'] = hotkey_listener('accent')
     listener = keyboard.GlobalHotKeys(key_map)
     listener.start()
     print("[Hotkey] Waiting for:", ', '.join(key_map.keys()))
@@ -183,8 +206,10 @@ if __name__ == '__main__':
                         help='Listen for volume key.', action='store_true', required=False)
     parser.add_argument('-a', '--accent', dest="accent",
                         help='Listen for accent key.', action='store_true', required=False)
-    parser.add_argument('-m', '--midi', dest="send_midi",
-                        help='Send synthetic MIDI sustain', action='store_true', required=False)
+    parser.add_argument('-r', '--record', dest="send_midi_record",
+                        help='Send synthetic MIDI record/stop/new', action='store_true', required=False)
+    parser.add_argument('-p', '--play', dest="send_midi_play",
+                        help='Send synthetic MIDI play/stop', action='store_true', required=False)
     ARGS = parser.parse_args()
 
     #listen_to_all_keys()
