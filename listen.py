@@ -21,6 +21,13 @@ VIRTUAL_OUTPUT_NAME = 'IAC Driver Gong TheGongPort'
 VIRTUAL_OUTPUT = None
 
 
+def say(s):
+    cmd = f"say '[[volm 0.50]] {s}'"
+    logging.info(f"Running cmd: {cmd}")
+    os.system(cmd)
+    return s
+
+
 def type_key(key):
     my_keyboard.press(key)
     my_keyboard.release(key)
@@ -155,6 +162,7 @@ def hotkey_listener(key_name):
     def __listener():
         print(f"[Hotkey] Detected: <{key_name}>")
         if key_name == 'volume':
+            print('[Hotkey] VOLUME DOWN')
             type_key(keyboard.Key.media_volume_down)
         if ARGS.send_midi_record:
             global RECORDING_STATE
@@ -201,6 +209,7 @@ def listen_to_all_keys():
 
 
 if __name__ == '__main__':
+    say("Listening.")  # Shows that speech synthesis isn't blocked.
     parser = argparse.ArgumentParser(description="A MIDI/Keyboard signal router.")
     parser.add_argument('-v', '--volume', dest="volume",
                         help='Listen for volume key.', action='store_true', required=False)

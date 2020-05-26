@@ -41,20 +41,23 @@ app = Flask(__name__)
 IS_DEV = __name__ == '__main__'
 PORT = 8080 if IS_DEV else 28000
 
-log_level = logging.DEBUG if IS_DEV else logging.WARNING
+log_level = logging.INFO
 logging.getLogger('werkzeug').setLevel(log_level)
 logger = logging.getLogger()
 logger.setLevel(log_level)
 log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(module)s:%(lineno)d %(message)s')
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(log_formatter)
+logger.handlers.clear()
 logger.addHandler(stream_handler)
 
-logging.info(f"GONG) Hi. Running as {__name__}. IS_DEV={IS_DEV}")
+logging.info(f"GONG) Hi. Running as {__name__}. IS_DEV={IS_DEV} PORT={PORT}")
 
 
 def say(s):
-    os.system(f"say '[[volm 0.50]] {s}'")
+    cmd = f"say '[[volm 0.50]] {s}'"
+    logging.info(f"Saying: {cmd}")
+    os.system(cmd)
     return s
 
 
@@ -104,15 +107,19 @@ def stop_view():
 
 @app.route("/start")
 def start_view():
+    logging.info("Request: start_view...")
     recording = obs.obs_frontend_recording_active()
     if not recording:
+        logging.info("...Start recording!")
         msg = say('Start')
         obs.obs_frontend_recording_start()
         return jsonify(msg=msg, on=True)
     if obs.obs_frontend_recording_paused():
+        logging.info("...Continue recording!")
         msg = say('Go')
         obs.obs_frontend_recording_pause(False)
         return jsonify(msg=msg, on=True)
+    logging.info("...Already recording!")
     return jsonify(msg="Already recording", on=True)
 
 
