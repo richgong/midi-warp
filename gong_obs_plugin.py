@@ -41,7 +41,7 @@ app = Flask(__name__)
 IS_DEV = __name__ == '__main__'
 PORT = 8080 if IS_DEV else 28000
 
-log_level = logging.INFO
+log_level = logging.WARNING
 logging.getLogger('werkzeug').setLevel(log_level)
 logger = logging.getLogger()
 logger.setLevel(log_level)
