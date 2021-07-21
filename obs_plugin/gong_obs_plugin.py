@@ -1,9 +1,9 @@
-from pynput import keyboard
-import threading
-import os
 from flask import Flask, render_template, jsonify, request
-import requests
 import logging
+import os
+import requests
+import threading
+from os.path import normpath, realpath, dirname
 
 
 ### OBS hooks
@@ -35,14 +35,16 @@ def script_unload():
     requests.get(f'http://localhost:{PORT}/kill')
 
 
-### App
+### Setup
+
+PROJECT_PATH = dirname(realpath(__file__))
 
 app = Flask(__name__)
 IS_DEV = __name__ == '__main__'
 PORT = 8080 if IS_DEV else 28000
 
-log_level = logging.WARNING
-logging.getLogger('werkzeug').setLevel(log_level)
+log_level = logging.INFO
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
 logger = logging.getLogger()
 logger.setLevel(log_level)
 log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(module)s:%(lineno)d %(message)s')
@@ -51,19 +53,37 @@ stream_handler.setFormatter(log_formatter)
 logger.handlers.clear()
 logger.addHandler(stream_handler)
 
-logging.info(f"GONG) Hi. Running as {__name__}. IS_DEV={IS_DEV} PORT={PORT}")
+### Helpers
+
+def get_absolute_path(relative_path):
+    return normpath(os.path.join(PROJECT_PATH, relative_path))
+
+SPEAK_VBS_PATH = get_absolute_path('speak.vbs')
+
+def get_debug_info():
+    debug_info = f"GONG) os.name={os.name} __name__={__name__}. IS_DEV={IS_DEV} PORT={PORT} CWD={os.getcwd()} __file__={__file__} PROJECT_PATH={PROJECT_PATH} SPEAK_VBS_PATH={SPEAK_VBS_PATH}"
+    logging.info(debug_info)
+    return debug_info
+
+
+get_debug_info()
 
 
 def say(s):
-    cmd = f"say '[[volm 0.50]] {s}'"
+    if os.name == 'nt':
+        cmd = f'cscript {SPEAK_VBS_PATH} "{s}"'
+    else:
+        cmd = f"say '[[volm 0.50]] {s}'"
     logging.info(f"Saying: {cmd}")
     os.system(cmd)
     return s
 
+### Routes
 
 @app.route("/")
 def home_view():
-    return render_template('home.html')
+    info = get_debug_info()
+    return render_template('home.html', info=info)
 
 
 @app.route("/record-toggle")
@@ -73,7 +93,7 @@ def record_toggle_view():
         obs.obs_frontend_recording_start()
     else:
         obs.obs_frontend_recording_stop()
-    return jsonify(msg="Recoding started" if recording else "Recording stopped", on=recording)
+    return jsonify(msg="Recording started" if recording else "Recording stopped", on=recording)
 
 
 @app.route("/pause-toggle")
@@ -132,10 +152,14 @@ def kill_view():
     return render_template('msg.html', msg='Server killed.')
 
 
-def on_hotkey():
-    logging.info("GONG) Hotkey detected")
-    obs.obs_frontend_recording_start()
+### This doesn't really work here. use volume_listen.py
+# from pynput import keyboard
+# def on_hotkey():
+#     logging.info("GONG) Hotkey detected")
+#     obs.obs_frontend_recording_start()
 
+
+### Start server
 
 def run_server(debug=False):
     app.run(host='0.0.0.0', port=PORT, debug=debug)
@@ -147,3 +171,4 @@ if IS_DEV:
 else:
     threading.Thread(target=run_server, kwargs=dict(debug=False)).start()
     import obspython as obs
+
