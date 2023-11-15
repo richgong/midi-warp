@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "midi-warp"
+version = "0.1.0"
+description = ""
+authors = ["Sway Ducky <swayducky@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pynput = "^1.7.6"
+flask = "^3.0.0"
+requests = "^2.31.0"
+gevent = "^23.9.1"
+rtmidi = "^2.5.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
